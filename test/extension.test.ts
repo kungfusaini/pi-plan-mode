@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import planModeExtension, { LEGACY_STATE_ENTRY_TYPE, STATE_ENTRY_TYPE } from "../src/index.ts";
 import { ensureProjectStore, resolveProjectContext } from "../src/context.ts";
-import { createPlan, setCurrentPlan } from "../src/plans.ts";
+import { createPlan, listPlans, resolveCurrentPlan, setCurrentPlan } from "../src/plans.ts";
 
 test("extension registers plan commands, tools, and legacy state migration", async () => {
   const handlers = new Map<string, Function[]>();
@@ -43,6 +43,9 @@ test("extension registers plan commands, tools, and legacy state migration", asy
   const current = createPlan(info, { title: "Visible plan", body: "## Goal\n\nShow this plan." });
   setCurrentPlan(info, current.id);
 
+  let branchEntries: any[] = [
+    { type: "custom", customType: LEGACY_STATE_ENTRY_TYPE, data: { enabled: true, toolsBeforePlanMode: active } },
+  ];
   const statuses = new Map<string, unknown>();
   const widgets = new Map<string, unknown>();
   const themed: Array<{ color: string; value: string }> = [];
@@ -51,8 +54,8 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     mode: "print",
     cwd: projectRoot,
     sessionManager: {
-      getBranch: () => [{ type: "custom", customType: LEGACY_STATE_ENTRY_TYPE, data: { enabled: true, toolsBeforePlanMode: active } }],
-      getEntries: () => [],
+      getBranch: () => branchEntries,
+      getEntries: () => branchEntries,
     },
     ui: {
       notify(message: string, level: string) { notifications.push({ message, level }); },
@@ -77,11 +80,81 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     assert.ok(!selected.includes("edit"));
     assert.deepEqual(widgets.get("plan-mode"), ["PLAN"]);
 
+    const promptResult = await handlers.get("before_agent_start")?.[0]({ systemPrompt: "base" }, ctx);
+    assert.match(promptResult.systemPrompt, /You are in Pi plan mode/);
+    assert.match(promptResult.systemPrompt, /must not create, edit, delete/);
+    assert.match(promptResult.systemPrompt, /Ask clarification questions only when the answer materially changes/);
+    assert.match(promptResult.systemPrompt, /Approve and select/);
+
+    const toolGate = handlers.get("tool_call")?.[0];
+    assert.ok(toolGate);
+    assert.equal((await toolGate({ toolName: "read", input: {} })) ?? undefined, undefined);
+    assert.match((await toolGate({ toolName: "write", input: {} })).reason, /write is disabled/);
+    assert.match((await toolGate({ toolName: "bash", input: { command: "git commit -am test" } })).reason, /git state mutation/);
+
     await commands.get("plan-show").handler("", ctx);
     assert.match(notifications.at(-1)?.message || "", /Show this plan/);
 
     await tools.get("pi_plan_current").execute("call", { action: "clear" }, undefined, undefined, ctx);
     assert.equal(statuses.get("plan-selected"), undefined);
+
+    branchEntries = [];
+    const countBeforeRefusal = listPlans(info).length;
+    const refused = await tools.get("pi_plan_create").execute(
+      "call",
+      { title: "Unapproved", body: "## Goal\n\nMust not save." },
+      undefined,
+      undefined,
+      ctx,
+    );
+    assert.match(refused.content[0].text, /Refusing to create plan/);
+    assert.equal(listPlans(info).length, countBeforeRefusal);
+
+    branchEntries = [{
+      type: "message",
+      message: {
+        role: "toolResult",
+        toolName: "question",
+        details: {
+          options: ["Approve and select", "Approve", "Discuss further"].map((label) => ({ label })),
+          value: "Approve and select",
+          cancelled: false,
+        },
+      },
+    }];
+    const approved = await tools.get("pi_plan_create").execute(
+      "call",
+      { title: "Approved plan", body: "## Goal\n\nFollow the approved route." },
+      undefined,
+      undefined,
+      ctx,
+    );
+    assert.match(approved.content[0].text, /Plan saved and selected/);
+    assert.equal(resolveCurrentPlan(info, "all")?.title, "Approved plan");
+    assert.equal(statuses.get("plan-selected"), "Plan Selected");
+
+    branchEntries = [{
+      type: "message",
+      message: {
+        role: "toolResult",
+        toolName: "question",
+        details: {
+          options: ["Approve and select", "Approve", "Discuss further"].map((label) => ({ label })),
+          value: "Discuss further",
+          cancelled: false,
+        },
+      },
+    }];
+    const countBeforeDiscussion = listPlans(info).length;
+    const discuss = await tools.get("pi_plan_create").execute(
+      "call",
+      { title: "Discussed plan", body: "## Goal\n\nMust not save." },
+      undefined,
+      undefined,
+      ctx,
+    );
+    assert.match(discuss.content[0].text, /selected Discuss further/);
+    assert.equal(listPlans(info).length, countBeforeDiscussion);
 
     await commands.get("plan").handler("off", ctx);
     assert.deepEqual(selected, active);
