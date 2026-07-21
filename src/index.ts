@@ -100,7 +100,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   }
 
   function updateStatus(ctx: ExtensionContext): void {
-    ctx.ui.setStatus("plan-mode", planModeEnabled ? ctx.ui.theme.fg("warning", "plan") : undefined);
+    ctx.ui.setStatus("plan-mode", planModeEnabled ? ctx.ui.theme.fg("warning", "PLAN") : undefined);
     const selected = resolveCurrentPlan(contextInfo(ctx), "all");
     ctx.ui.setStatus("plan-selected", selected ? ctx.ui.theme.fg("dim", "Plan Selected") : undefined);
   }
@@ -151,6 +151,21 @@ export default function planModeExtension(pi: ExtensionAPI) {
     persistState();
   }
 
+  function togglePlanMode(ctx: ExtensionContext): void {
+    if (planModeEnabled) {
+      disablePlanMode(ctx);
+      ctx.ui.notify("Plan mode disabled. Normal tools restored.", "info");
+    } else {
+      enablePlanMode(ctx);
+      ctx.ui.notify("Plan mode enabled. Repo write tools disabled; mutating bash is blocked.", "info");
+    }
+  }
+
+  pi.registerShortcut("tab", {
+    description: "Toggle plan mode",
+    handler: async (ctx) => togglePlanMode(ctx),
+  });
+
   pi.registerCommand("plan", {
     description: "Toggle Pi plan mode, or use /plan <task> to enable plan mode and ask the agent to draft a durable plan",
     handler: async (args, ctx) => {
@@ -161,12 +176,11 @@ export default function planModeExtension(pi: ExtensionAPI) {
         ctx.ui.notify("Plan mode disabled. Normal tools restored.", "info");
         return;
       }
-      if (["on", "enable", "enabled"].includes(action) || !raw) {
-        if (planModeEnabled && !raw) {
-          disablePlanMode(ctx);
-          ctx.ui.notify("Plan mode disabled. Normal tools restored.", "info");
-          return;
-        }
+      if (!raw) {
+        togglePlanMode(ctx);
+        return;
+      }
+      if (["on", "enable", "enabled"].includes(action)) {
         enablePlanMode(ctx);
         ctx.ui.notify("Plan mode enabled. Repo write tools disabled; mutating bash is blocked.", "info");
         return;

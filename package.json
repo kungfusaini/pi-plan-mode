@@ -1,6 +1,6 @@
 {
   "name": "@kungfusaini/pi-plan-mode",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Read-only plan mode and XDG-backed durable project plans for the Pi coding agent",
   "license": "MIT",
   "type": "module",

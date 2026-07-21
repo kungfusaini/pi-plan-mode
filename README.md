@@ -4,7 +4,7 @@ Read-only planning mode and durable project plans for the [Pi coding agent](http
 
 ## Features
 
-- `/plan` toggles a read-only exploration mode; `/plan <task>` starts a planning request.
+- `Tab` or `/plan` toggles a read-only exploration mode; `/plan <task>` starts a planning request.
 - Disables `edit` and `write` and blocks common mutating shell commands while planning.
 - Durable `pi_plan_create`, `pi_plan_list`, `pi_plan_current`, `pi_plan_read`, `pi_plan_update`, and `pi_plan_archive` tools.
 - Explicit **Approve and select / Approve / Discuss further** save flow.
@@ -44,6 +44,7 @@ pi -e ./src/index.ts
 ## Commands
 
 ```text
+Tab               Toggle plan mode and the PLAN footer indicator
 /plan             Toggle plan mode
 /plan on          Enable plan mode
 /plan off         Disable plan mode

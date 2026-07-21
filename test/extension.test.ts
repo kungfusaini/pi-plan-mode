@@ -10,6 +10,7 @@ import { createPlan, setCurrentPlan } from "../src/plans.ts";
 test("extension registers plan commands, tools, and legacy state migration", async () => {
   const handlers = new Map<string, Function[]>();
   const commands = new Map<string, any>();
+  const shortcuts = new Map<string, any>();
   const tools = new Map<string, any>();
   const active = ["read", "bash", "edit", "write", "pi_todo"];
   let selected = [...active];
@@ -20,6 +21,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     getAllTools() { return [...active, "question", "pi_plan_create", "pi_plan_current", "pi_plan_list", "pi_plan_read", "pi_plan_update", "pi_plan_archive"].map((name) => ({ name })); },
     on(name: string, handler: Function) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
     registerCommand(name: string, command: unknown) { commands.set(name, command); },
+    registerShortcut(key: string, shortcut: unknown) { shortcuts.set(key, shortcut); },
     registerTool(tool: any) { tools.set(tool.name, tool); },
     sendUserMessage() {},
     setActiveTools(names: string[]) { selected = names; },
@@ -29,6 +31,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
   assert.ok(commands.has("plan"));
   assert.ok(commands.has("plans"));
   assert.ok(commands.has("plan-show"));
+  assert.ok(shortcuts.has("tab"));
   assert.deepEqual([...tools.keys()], ["pi_plan_create", "pi_plan_list", "pi_plan_current", "pi_plan_read", "pi_plan_update", "pi_plan_archive"]);
 
   const previousDataHome = process.env.XDG_DATA_HOME;
@@ -60,9 +63,16 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     await handlers.get("session_start")?.[0]({}, ctx);
     assert.ok(!selected.includes("edit"));
     assert.ok(selected.includes("pi_todo"));
-    assert.equal(statuses.get("plan-mode"), "plan");
+    assert.equal(statuses.get("plan-mode"), "PLAN");
     assert.equal(statuses.get("plan-selected"), "Plan Selected");
     assert.ok(themed.some(({ color, value }) => color === "dim" && value === "Plan Selected"));
+
+    await shortcuts.get("tab").handler(ctx);
+    assert.deepEqual(selected, active);
+    assert.equal(statuses.get("plan-mode"), undefined);
+    await shortcuts.get("tab").handler(ctx);
+    assert.ok(!selected.includes("edit"));
+    assert.equal(statuses.get("plan-mode"), "PLAN");
 
     await commands.get("plan-show").handler("", ctx);
     assert.match(notifications.at(-1)?.message || "", /Show this plan/);
