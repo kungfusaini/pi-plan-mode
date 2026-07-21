@@ -8,6 +8,7 @@ Read-only planning mode and durable project plans for the [Pi coding agent](http
 - Disables `edit` and `write` and blocks common mutating shell commands while planning.
 - Durable `pi_plan_create`, `pi_plan_list`, `pi_plan_current`, `pi_plan_read`, `pi_plan_update`, and `pi_plan_archive` tools.
 - Explicit **Approve and select / Approve / Discuss further** save flow.
+- `Plan Selected` footer indicator and `/plan-show` Markdown viewer for the selected plan.
 - XDG-backed storage outside repositories.
 - Works without a project-management plugin.
 - Reuses the shared Pi project registry when present, so independently installed project tools converge on the same storage.
@@ -50,6 +51,7 @@ pi -e ./src/index.ts
 /plans            List active plans
 /plans archive    List archived plans
 /plans all        List every plan
+/plan-show        Show the selected plan
 ```
 
 ## Plan model

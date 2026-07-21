@@ -1,5 +1,5 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { DynamicBorder, getMarkdownTheme, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Container, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { ensureProjectStore, resolveProjectContext, type ProjectContextInfo } from "./context.ts";
 import { getNormalModeTools, getPlanModeTools, mutatingBashReason, PLAN_MODE_DISABLED_TOOLS } from "./mode.ts";
@@ -101,6 +101,37 @@ export default function planModeExtension(pi: ExtensionAPI) {
 
   function updateStatus(ctx: ExtensionContext): void {
     ctx.ui.setStatus("plan-mode", planModeEnabled ? ctx.ui.theme.fg("warning", "plan") : undefined);
+    const selected = resolveCurrentPlan(contextInfo(ctx), "all");
+    ctx.ui.setStatus("plan-selected", selected ? ctx.ui.theme.fg("accent", "Plan Selected") : undefined);
+  }
+
+  async function showSelectedPlan(ctx: ExtensionContext): Promise<void> {
+    const selected = resolveCurrentPlan(contextInfo(ctx), "all");
+    if (!selected) {
+      ctx.ui.notify("No plan is selected.", "warning");
+      return;
+    }
+    if (ctx.mode !== "tui") {
+      ctx.ui.notify(selected.content, "info");
+      return;
+    }
+
+    await ctx.ui.custom<void>((_tui, theme, _keybindings, done) => {
+      const container = new Container();
+      const border = new DynamicBorder((text: string) => theme.fg("accent", text));
+      container.addChild(border);
+      container.addChild(new Text(theme.fg("accent", theme.bold(`Selected Plan · ${selected.title}`)), 1, 0));
+      container.addChild(new Markdown(selected.content, 1, 1, getMarkdownTheme()));
+      container.addChild(new Text(theme.fg("dim", "Press Enter or Esc to close"), 1, 0));
+      container.addChild(border);
+      return {
+        render: (width: number) => container.render(width),
+        invalidate: () => container.invalidate(),
+        handleInput: (data: string) => {
+          if (matchesKey(data, "enter") || matchesKey(data, "escape")) done();
+        },
+      };
+    });
   }
 
   function enablePlanMode(ctx: ExtensionContext): void {
@@ -153,6 +184,11 @@ export default function planModeExtension(pi: ExtensionAPI) {
       const status = ["active", "archive", "all"].includes(args.trim()) ? args.trim() : "active";
       ctx.ui.notify(formatPlanList(info, listPlans(info, status)), "info");
     },
+  });
+
+  pi.registerCommand("plan-show", {
+    description: "Show the currently selected durable plan",
+    handler: async (_args, ctx) => showSelectedPlan(ctx),
   });
 
   pi.on("session_start", async (_event, ctx) => {
@@ -211,6 +247,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
       const info = contextInfo(ctx);
       const plan = createPlan(info, params);
       if (shouldSelect) setCurrentPlan(info, plan.id);
+      updateStatus(ctx);
       return textResult([
         shouldSelect ? "Plan saved and selected." : "Plan saved as active but not selected.",
         `Plan: ${plan.title} (${plan.id})`,
@@ -250,11 +287,13 @@ export default function planModeExtension(pi: ExtensionAPI) {
       const action = (params.action || "show").trim().toLowerCase();
       if (action === "clear") {
         clearCurrentPlanRef(info);
+        updateStatus(ctx);
         return textResult("Current plan pointer cleared.");
       }
       if (action === "set") {
         if (!params.id) return textResult("action=set requires id");
         const plan = setCurrentPlan(info, params.id);
+        updateStatus(ctx);
         return textResult(`Current plan set to ${plan.title} (${plan.id})\nPath: ${plan.path}`, { plan });
       }
       const current = resolveCurrentPlan(info, "all");
@@ -308,6 +347,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const info = contextInfo(ctx);
       const plan = archivePlan(info, params);
+      updateStatus(ctx);
       return textResult(`Archived plan: ${plan.title} (${plan.id})\nPath: ${plan.path}`, { plan });
     },
   });
