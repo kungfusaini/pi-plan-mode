@@ -44,6 +44,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
   setCurrentPlan(info, current.id);
 
   const statuses = new Map<string, unknown>();
+  const widgets = new Map<string, unknown>();
   const themed: Array<{ color: string; value: string }> = [];
   const notifications: Array<{ message: string; level: string }> = [];
   const ctx: any = {
@@ -56,6 +57,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     ui: {
       notify(message: string, level: string) { notifications.push({ message, level }); },
       setStatus(key: string, value: unknown) { statuses.set(key, value); },
+      setWidget(key: string, value: unknown) { widgets.set(key, value); },
       theme: { fg: (color: string, value: string) => { themed.push({ color, value }); return value; } },
     },
   };
@@ -63,16 +65,17 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     await handlers.get("session_start")?.[0]({}, ctx);
     assert.ok(!selected.includes("edit"));
     assert.ok(selected.includes("pi_todo"));
-    assert.equal(statuses.get("plan-mode"), "PLAN");
+    assert.equal(statuses.get("plan-mode"), undefined);
+    assert.deepEqual(widgets.get("plan-mode"), ["PLAN"]);
     assert.equal(statuses.get("plan-selected"), "Plan Selected");
     assert.ok(themed.some(({ color, value }) => color === "dim" && value === "Plan Selected"));
 
     await shortcuts.get("tab").handler(ctx);
     assert.deepEqual(selected, active);
-    assert.equal(statuses.get("plan-mode"), undefined);
+    assert.equal(widgets.get("plan-mode"), undefined);
     await shortcuts.get("tab").handler(ctx);
     assert.ok(!selected.includes("edit"));
-    assert.equal(statuses.get("plan-mode"), "PLAN");
+    assert.deepEqual(widgets.get("plan-mode"), ["PLAN"]);
 
     await commands.get("plan-show").handler("", ctx);
     assert.match(notifications.at(-1)?.message || "", /Show this plan/);

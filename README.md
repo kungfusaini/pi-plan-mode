@@ -44,7 +44,7 @@ pi -e ./src/index.ts
 ## Commands
 
 ```text
-Tab               Toggle plan mode and the PLAN footer indicator
+Tab               Toggle plan mode and the PLAN tag above the input
 /plan             Toggle plan mode
 /plan on          Enable plan mode
 /plan off         Disable plan mode

@@ -100,7 +100,8 @@ export default function planModeExtension(pi: ExtensionAPI) {
   }
 
   function updateStatus(ctx: ExtensionContext): void {
-    ctx.ui.setStatus("plan-mode", planModeEnabled ? ctx.ui.theme.fg("warning", "PLAN") : undefined);
+    ctx.ui.setStatus("plan-mode", undefined);
+    ctx.ui.setWidget("plan-mode", planModeEnabled ? [ctx.ui.theme.fg("warning", "PLAN")] : undefined);
     const selected = resolveCurrentPlan(contextInfo(ctx), "all");
     ctx.ui.setStatus("plan-selected", selected ? ctx.ui.theme.fg("dim", "Plan Selected") : undefined);
   }
