@@ -1,7 +1,13 @@
 import { DynamicBorder, getMarkdownTheme, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { ensureProjectStore, resolveProjectContext, type ProjectContextInfo } from "./context.ts";
+import {
+  ensurePlanStore,
+  resolvePlanContext,
+  WORKSPACE_CONTEXT_EVENT,
+  type ProjectContextInfo,
+  type WorkspaceContextRequest,
+} from "./context.ts";
 import { getNormalModeTools, getPlanModeTools, mutatingBashReason, PLAN_MODE_DISABLED_TOOLS } from "./mode.ts";
 import {
   archivePlan,
@@ -23,10 +29,6 @@ const APPROVAL_OPTIONS = ["Approve and select", "Approve", "Discuss further"];
 interface PlanModeState {
   enabled: boolean;
   toolsBeforePlanMode?: string[];
-}
-
-function contextInfo(ctx: ExtensionContext): ProjectContextInfo {
-  return ensureProjectStore(resolveProjectContext(ctx.cwd));
 }
 
 function textResult(text: string, details: Record<string, unknown> = {}) {
@@ -55,7 +57,7 @@ function latestPlanApproval(ctx: ExtensionContext): "select" | "approve" | "disc
 }
 
 function planModePrompt(info: ProjectContextInfo): string {
-  return `You are in Pi plan mode. You may inspect, search, and reason, but you must not create, edit, delete, move, format, generate, or otherwise mutate project files. The only write-like exception is Pi's internal project plan storage through pi_plan_* tools after explicit user approval.
+  return `You are in Pi plan mode. You may inspect, search, and reason, but you must not create, edit, delete, move, format, generate, or otherwise mutate project files. The only write-like exception is Pi's internal scoped plan storage through pi_plan_* tools after explicit user approval.
 
 Use plan mode to separate research from implementation:
 1. Understand the user's goal and constraints.
@@ -92,6 +94,15 @@ ${planWorkflowContext(info)}`;
 }
 
 export default function planModeExtension(pi: ExtensionAPI) {
+  function contextInfo(ctx: ExtensionContext): ProjectContextInfo {
+    const request: WorkspaceContextRequest = {
+      cwd: ctx.cwd,
+      sessionID: ctx.sessionManager.getSessionId(),
+    };
+    pi.events.emit(WORKSPACE_CONTEXT_EVENT, request);
+    return ensurePlanStore(resolvePlanContext(request.cwd, request.sessionID, request.result));
+  }
+
   let planModeEnabled = false;
   let toolsBeforePlanMode: string[] | undefined;
 
@@ -193,7 +204,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   });
 
   pi.registerCommand("plans", {
-    description: "List active Pi project plans",
+    description: "List active Pi plans in the current scope",
     handler: async (args, ctx) => {
       const info = contextInfo(ctx);
       const status = ["active", "archive", "all"].includes(args.trim()) ? args.trim() : "active";
@@ -242,8 +253,8 @@ export default function planModeExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_plan_create",
     label: "Plan Create",
-    description: "Create a durable active Pi project plan after the final question approval flow. This tool verifies the latest approval question result; the select parameter is accepted for compatibility but the recorded user answer is authoritative.",
-    promptSnippet: "Create a durable project plan after explicit approval.",
+    description: "Create a durable active Pi plan in the current scope after the final question approval flow. This tool verifies the latest approval question result; the select parameter is accepted for compatibility but the recorded user answer is authoritative.",
+    promptSnippet: "Create a durable scoped plan after explicit approval.",
     promptGuidelines: [
       "Use pi_plan_create only after asking the final approval question with exactly: Approve and select, Approve, Discuss further.",
       "Do not use pi_plan_create when the user selected Discuss further.",
@@ -279,7 +290,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_plan_list",
     label: "Plan List",
-    description: "List durable Pi project plans for the current project.",
+    description: "List durable Pi plans in the current session, project, or stream scope.",
     parameters: Type.Object({ status: Type.Optional(Type.String({ description: "active, archive, or all" })) }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const info = contextInfo(ctx);
@@ -320,7 +331,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_plan_read",
     label: "Plan Read",
-    description: "Read a durable Pi project plan.",
+    description: "Read a durable Pi plan from the current scope.",
     parameters: Type.Object({
       id: Type.Optional(Type.String({ description: "Plan id/path/title. If omitted, current or single active plan is used." })),
       status: Type.Optional(Type.String({ description: "active, archive, or all" })),
@@ -340,7 +351,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_plan_update",
     label: "Plan Update",
-    description: "Update an active durable Pi project plan only when intended approach/scope/risks/completion criteria change. Do not use for checklist progress.",
+    description: "Update an active durable Pi plan only when intended approach/scope/risks/completion criteria change. Do not use for checklist progress.",
     parameters: Type.Object({
       id: Type.Optional(Type.String()),
       title: Type.Optional(Type.String()),
@@ -357,7 +368,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_plan_archive",
     label: "Plan Archive",
-    description: "Archive a completed active durable Pi project plan.",
+    description: "Archive a completed active durable Pi plan in the current scope.",
     parameters: Type.Object({ id: Type.Optional(Type.String()), result: Type.Optional(Type.String()) }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const info = contextInfo(ctx);

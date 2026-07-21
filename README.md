@@ -1,6 +1,6 @@
 # pi-plan-mode
 
-Read-only planning mode and durable project plans for the [Pi coding agent](https://pi.dev).
+Read-only planning mode and durable scoped plans for the [Pi coding agent](https://pi.dev).
 
 ## Features
 
@@ -10,24 +10,40 @@ Read-only planning mode and durable project plans for the [Pi coding agent](http
 - Explicit **Approve and select / Approve / Discuss further** save flow.
 - Dim-grey `Plan Selected` footer indicator and `/plan-show` Markdown viewer for the selected plan.
 - XDG-backed storage outside repositories.
-- Works without a project-management plugin.
-- Reuses the shared Pi project registry when present, so independently installed project tools converge on the same storage.
+- Works without a workspace plugin by keeping plans isolated to the current Pi session.
+- Optionally uses project- or stream-scoped storage when an enabled workspace plugin provides that context at runtime.
 - Preserves other installed tools in plan mode; session todo tools are supported but not required.
 
-## Storage
+## Plan scope and storage
 
-Plans are stored under:
+The extension resolves plan scope in this order:
+
+1. **Workspace stream:** when an enabled workspace plugin reports an active stream, plans and the selected-plan pointer belong to that stream.
+2. **Workspace project:** when an enabled workspace plugin reports project scope, plans and selection belong to that project.
+3. **Standalone session:** when no workspace plugin provides context, plans and selection belong only to the current Pi session.
+
+Storage stays outside repositories under the XDG data directory:
 
 ```text
+# Standalone session scope
+${XDG_DATA_HOME:-~/.local/share}/pi/sessions/<session-id>--<hash>/plans/
+
+# Workspace project scope
 ${XDG_DATA_HOME:-~/.local/share}/pi/projects/<project-id>/plans/
-├── active/
-├── archive/
-└── current.json
+
+# Workspace stream scope
+${XDG_DATA_HOME:-~/.local/share}/pi/projects/<project-id>/streams/<stream-id>/plans/
 ```
 
-The project ID is a stable slug plus the first 12 characters of a SHA-256 hash of the canonical project root. If `${XDG_DATA_HOME}/pi/projects/registry.json` exists, the longest matching active project root or alias is used. Otherwise the extension discovers a Git root and finally falls back to the current working directory.
+Each `plans/` directory contains:
 
-This convention matches Pi project/workspace tools without requiring them as a dependency.
+```text
+active/
+archive/
+current.json
+```
+
+Workspace integration uses Pi's runtime event bus rather than a package dependency or stale registry detection. If no provider answers, the extension always falls back to session scope.
 
 ## Install
 

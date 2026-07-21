@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import planModeExtension, { LEGACY_STATE_ENTRY_TYPE, STATE_ENTRY_TYPE } from "../src/index.ts";
-import { ensureProjectStore, resolveProjectContext } from "../src/context.ts";
+import { ensurePlanStore, resolvePlanContext } from "../src/context.ts";
 import { createPlan, listPlans, resolveCurrentPlan, setCurrentPlan } from "../src/plans.ts";
 
 test("extension registers plan commands, tools, and legacy state migration", async () => {
@@ -17,6 +17,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
   const entries: any[] = [];
   const pi: any = {
     appendEntry(customType: string, data: unknown) { entries.push({ type: "custom", customType, data }); },
+    events: { emit() {} },
     getActiveTools() { return selected; },
     getAllTools() { return [...active, "question", "pi_plan_create", "pi_plan_current", "pi_plan_list", "pi_plan_read", "pi_plan_update", "pi_plan_archive"].map((name) => ({ name })); },
     on(name: string, handler: Function) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
@@ -39,7 +40,8 @@ test("extension registers plan commands, tools, and legacy state migration", asy
   const projectRoot = mkdtempSync(path.join(tmpdir(), "pi-plan-extension-project-"));
   mkdirSync(path.join(projectRoot, ".git"));
   process.env.XDG_DATA_HOME = dataHome;
-  const info = ensureProjectStore(resolveProjectContext(projectRoot));
+  const sessionID = "extension-test-session";
+  const info = ensurePlanStore(resolvePlanContext(projectRoot, sessionID));
   const current = createPlan(info, { title: "Visible plan", body: "## Goal\n\nShow this plan." });
   setCurrentPlan(info, current.id);
 
@@ -54,6 +56,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     mode: "print",
     cwd: projectRoot,
     sessionManager: {
+      getSessionId: () => sessionID,
       getBranch: () => branchEntries,
       getEntries: () => branchEntries,
     },

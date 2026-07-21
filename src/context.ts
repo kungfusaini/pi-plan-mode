@@ -1,21 +1,38 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
+import { mkdirSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
-export interface ProjectContextInfo {
+export const WORKSPACE_CONTEXT_EVENT = "pi:workspace-context:resolve";
+
+export type PlanScope = "session" | "project" | "stream";
+
+export interface PlanContextInfo {
+  scope: PlanScope;
   id: string;
   root: string;
   dir: string;
   plans: string;
+  sessionID?: string;
+  projectID?: string;
+  streamID?: string;
 }
 
-interface RegistryProject {
-  id?: string;
-  root?: string;
-  dir?: string;
-  aliases?: string[];
-  status?: string;
+export type ProjectContextInfo = PlanContextInfo;
+
+export interface WorkspacePlanContext {
+  scope: "project" | "stream";
+  id: string;
+  root: string;
+  dir: string;
+  projectID: string;
+  streamID?: string;
+}
+
+export interface WorkspaceContextRequest {
+  cwd: string;
+  sessionID: string;
+  result?: WorkspacePlanContext;
 }
 
 function dataHome(): string {
@@ -40,69 +57,52 @@ function canonicalPath(value: string): string {
   }
 }
 
-function isWithin(candidate: string, root: string): boolean {
-  const relative = path.relative(root, candidate);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+function sessionStorageID(sessionID: string): string {
+  const base = slugify(sessionID) || "session";
+  const hash = createHash("sha256").update(sessionID).digest("hex").slice(0, 12);
+  return `${base}--${hash}`;
 }
 
-function registryFile(): string {
-  return path.join(dataHome(), "pi", "projects", "registry.json");
+function validWorkspaceContext(value: WorkspacePlanContext | undefined): value is WorkspacePlanContext {
+  return Boolean(
+    value
+      && (value.scope === "project" || value.scope === "stream")
+      && value.id
+      && value.root
+      && value.dir
+      && value.projectID,
+  );
 }
 
-function registeredProject(cwd: string): RegistryProject | undefined {
-  const file = registryFile();
-  if (!existsSync(file)) return undefined;
-
-  try {
-    const parsed = JSON.parse(readFileSync(file, "utf8"));
-    const projects = parsed?.projects && typeof parsed.projects === "object"
-      ? Object.values(parsed.projects) as RegistryProject[]
-      : [];
-    return projects
-      .filter((project) => (project.status || "active") === "active" && project.root)
-      .flatMap((project) => {
-        const aliases = [project.root, ...(project.aliases || [])]
-          .filter((value): value is string => typeof value === "string" && value.length > 0)
-          .map(canonicalPath);
-        return aliases
-          .filter((alias) => isWithin(cwd, alias))
-          .map((alias) => ({ project, score: alias.length }));
-      })
-      .sort((a, b) => b.score - a.score)[0]?.project;
-  } catch {
-    return undefined;
+export function resolvePlanContext(
+  workdir: string,
+  sessionID: string,
+  workspaceContext?: WorkspacePlanContext,
+): PlanContextInfo {
+  if (validWorkspaceContext(workspaceContext)) {
+    const dir = path.resolve(workspaceContext.dir);
+    return {
+      ...workspaceContext,
+      root: canonicalPath(workspaceContext.root),
+      dir,
+      plans: path.join(dir, "plans"),
+      sessionID,
+    };
   }
+
+  const storageID = sessionStorageID(sessionID);
+  const dir = path.join(dataHome(), "pi", "sessions", storageID);
+  return {
+    scope: "session",
+    id: sessionID,
+    sessionID,
+    root: canonicalPath(workdir),
+    dir,
+    plans: path.join(dir, "plans"),
+  };
 }
 
-function discoverRoot(cwd: string): string {
-  let current = cwd;
-  while (true) {
-    if (existsSync(path.join(current, ".git"))) return current;
-    const parent = path.dirname(current);
-    if (parent === current) return cwd;
-    current = parent;
-  }
-}
-
-export function projectID(root: string): string {
-  const canonicalRoot = canonicalPath(root);
-  const hash = createHash("sha256").update(canonicalRoot).digest("hex").slice(0, 12);
-  const parent = path.basename(path.dirname(canonicalRoot));
-  const leaf = path.basename(canonicalRoot) || "project";
-  const base = slugify(parent && parent !== path.sep ? `${parent}-${leaf}` : leaf);
-  return `${base || "project"}--${hash}`;
-}
-
-export function resolveProjectContext(workdir: string): ProjectContextInfo {
-  const cwd = canonicalPath(workdir);
-  const registered = registeredProject(cwd);
-  const root = canonicalPath(registered?.root || discoverRoot(cwd));
-  const id = registered?.id || projectID(root);
-  const dir = registered?.dir || path.join(dataHome(), "pi", "projects", id);
-  return { id, root, dir, plans: path.join(dir, "plans") };
-}
-
-export function ensureProjectStore(info: ProjectContextInfo): ProjectContextInfo {
+export function ensurePlanStore(info: PlanContextInfo): PlanContextInfo {
   mkdirSync(path.join(info.plans, "active"), { recursive: true });
   mkdirSync(path.join(info.plans, "archive"), { recursive: true });
   return info;

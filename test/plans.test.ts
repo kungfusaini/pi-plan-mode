@@ -8,7 +8,7 @@ import { archivePlan, createPlan, listPlans, resolveCurrentPlan, setCurrentPlan,
 
 function context(): ProjectContextInfo {
   const dir = mkdtempSync(path.join(tmpdir(), "pi-plan-store-"));
-  return { id: "example--123456789abc", root: "/example", dir, plans: path.join(dir, "plans") };
+  return { scope: "session", id: "example-session", sessionID: "example-session", root: "/example", dir, plans: path.join(dir, "plans") };
 }
 
 test("plan lifecycle uses active, current, and archive storage", () => {
