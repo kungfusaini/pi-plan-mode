@@ -102,7 +102,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
   function updateStatus(ctx: ExtensionContext): void {
     ctx.ui.setStatus("plan-mode", planModeEnabled ? ctx.ui.theme.fg("warning", "plan") : undefined);
     const selected = resolveCurrentPlan(contextInfo(ctx), "all");
-    ctx.ui.setStatus("plan-selected", selected ? ctx.ui.theme.fg("accent", "Plan Selected") : undefined);
+    ctx.ui.setStatus("plan-selected", selected ? ctx.ui.theme.fg("dim", "Plan Selected") : undefined);
   }
 
   async function showSelectedPlan(ctx: ExtensionContext): Promise<void> {

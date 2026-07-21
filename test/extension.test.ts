@@ -41,6 +41,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
   setCurrentPlan(info, current.id);
 
   const statuses = new Map<string, unknown>();
+  const themed: Array<{ color: string; value: string }> = [];
   const notifications: Array<{ message: string; level: string }> = [];
   const ctx: any = {
     mode: "print",
@@ -52,7 +53,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     ui: {
       notify(message: string, level: string) { notifications.push({ message, level }); },
       setStatus(key: string, value: unknown) { statuses.set(key, value); },
-      theme: { fg: (_color: string, value: string) => value },
+      theme: { fg: (color: string, value: string) => { themed.push({ color, value }); return value; } },
     },
   };
   try {
@@ -61,6 +62,7 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     assert.ok(selected.includes("pi_todo"));
     assert.equal(statuses.get("plan-mode"), "plan");
     assert.equal(statuses.get("plan-selected"), "Plan Selected");
+    assert.ok(themed.some(({ color, value }) => color === "dim" && value === "Plan Selected"));
 
     await commands.get("plan-show").handler("", ctx);
     assert.match(notifications.at(-1)?.message || "", /Show this plan/);
