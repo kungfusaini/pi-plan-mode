@@ -10,21 +10,21 @@ Set Height 760
 Set Padding 28
 Set Theme "Catppuccin Mocha"
 Set WindowBar Colorful
-Set TypingSpeed 55ms
+Set TypingSpeed 90ms
 Set PlaybackSpeed 1.0
 
 Type "./demo/demo.py"
 Enter
-Sleep 4s
+Sleep 8s
 Type "/plan add Stripe subscriptions to the app"
 Enter
-Sleep 6s
+Sleep 10s
 Type "Hosted Stripe Checkout"
 Enter
-Sleep 5s
+Sleep 9s
 Type "Approve and select"
 Enter
-Sleep 3s
+Sleep 8s
 Type "/plan-show"
 Enter
-Sleep 5s
+Sleep 8s
