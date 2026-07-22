@@ -8,6 +8,8 @@ import { ensurePlanStore, resolvePlanContext } from "../src/context.ts";
 import { createPlan, listPlans, resolveCurrentPlan, setCurrentPlan } from "../src/plans.ts";
 
 test("extension registers plan commands, tools, and legacy state migration", async () => {
+  const previousShortcut = process.env.PI_PLAN_MODE_SHORTCUT;
+  process.env.PI_PLAN_MODE_SHORTCUT = "ctrl+alt+p";
   const handlers = new Map<string, Function[]>();
   const commands = new Map<string, any>();
   const shortcuts = new Map<string, any>();
@@ -28,11 +30,13 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     setActiveTools(names: string[]) { selected = names; },
   };
   planModeExtension(pi);
+  if (previousShortcut === undefined) delete process.env.PI_PLAN_MODE_SHORTCUT;
+  else process.env.PI_PLAN_MODE_SHORTCUT = previousShortcut;
 
   assert.ok(commands.has("plan"));
   assert.ok(commands.has("plans"));
   assert.ok(commands.has("plan-show"));
-  assert.ok(shortcuts.has("tab"));
+  assert.ok(shortcuts.has("ctrl+alt+p"));
   assert.deepEqual([...tools.keys()], ["pi_plan_create", "pi_plan_list", "pi_plan_current", "pi_plan_read", "pi_plan_update", "pi_plan_archive"]);
 
   const previousDataHome = process.env.XDG_DATA_HOME;
@@ -76,10 +80,10 @@ test("extension registers plan commands, tools, and legacy state migration", asy
     assert.equal(statuses.get("plan-selected"), "Plan Selected");
     assert.ok(themed.some(({ color, value }) => color === "dim" && value === "Plan Selected"));
 
-    await shortcuts.get("tab").handler(ctx);
+    await shortcuts.get("ctrl+alt+p").handler(ctx);
     assert.deepEqual(selected, active);
     assert.equal(widgets.get("plan-mode"), undefined);
-    await shortcuts.get("tab").handler(ctx);
+    await shortcuts.get("ctrl+alt+p").handler(ctx);
     assert.ok(!selected.includes("edit"));
     assert.deepEqual(widgets.get("plan-mode"), ["PLAN"]);
 

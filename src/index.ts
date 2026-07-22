@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 import { DynamicBorder, getMarkdownTheme, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { Container, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
+import { Container, Markdown, matchesKey, Text, type KeyId } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import {
   ensurePlanStore,
@@ -25,6 +28,24 @@ import {
 export const STATE_ENTRY_TYPE = "pi-plan-mode";
 export const LEGACY_STATE_ENTRY_TYPE = "project-workspaces-plan-mode";
 const APPROVAL_OPTIONS = ["Approve and select", "Approve", "Discuss further"];
+const DEFAULT_TOGGLE_SHORTCUT = "ctrl+alt+p";
+const CONFIG_PATH = path.join(process.env.XDG_CONFIG_HOME || path.join(homedir(), ".config"), "pi", "agent", "plan-mode.json");
+
+function configuredToggleShortcut(): KeyId {
+  const envShortcut = process.env.PI_PLAN_MODE_SHORTCUT?.trim();
+  if (envShortcut) return envShortcut as KeyId;
+
+  try {
+    const raw = readFileSync(CONFIG_PATH, "utf8");
+    const config = JSON.parse(raw) as { toggleShortcut?: unknown; shortcut?: unknown };
+    const shortcut = typeof config.toggleShortcut === "string" ? config.toggleShortcut.trim()
+      : typeof config.shortcut === "string" ? config.shortcut.trim()
+        : "";
+    return (shortcut || DEFAULT_TOGGLE_SHORTCUT) as KeyId;
+  } catch {
+    return DEFAULT_TOGGLE_SHORTCUT;
+  }
+}
 
 interface PlanModeState {
   enabled: boolean;
@@ -173,7 +194,7 @@ export default function planModeExtension(pi: ExtensionAPI) {
     }
   }
 
-  pi.registerShortcut("tab", {
+  pi.registerShortcut(configuredToggleShortcut(), {
     description: "Toggle plan mode",
     handler: async (ctx) => togglePlanMode(ctx),
   });

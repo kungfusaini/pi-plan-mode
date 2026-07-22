@@ -1,6 +1,6 @@
 {
   "name": "@kungfusaini/pi-plan-mode",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Read-only plan mode and XDG-backed durable project plans for the Pi coding agent",
   "license": "MIT",
   "type": "module",
@@ -32,7 +32,7 @@
   "scripts": {
     "check": "npm run typecheck && npm test",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test --test-concurrency=1 test/*.test.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

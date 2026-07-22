@@ -4,7 +4,7 @@ Read-only planning mode and durable scoped plans for the [Pi coding agent](https
 
 ## Features
 
-- `Tab` or `/plan` toggles a read-only exploration mode; `/plan <task>` starts a planning request.
+- `Ctrl+Alt+P` or `/plan` toggles a read-only exploration mode; `/plan <task>` starts a planning request.
 - Disables `edit` and `write` and blocks common mutating shell commands while planning.
 - Durable `pi_plan_create`, `pi_plan_list`, `pi_plan_current`, `pi_plan_read`, `pi_plan_update`, and `pi_plan_archive` tools.
 - Explicit **Approve and select / Approve / Discuss further** save flow.
@@ -60,7 +60,7 @@ pi -e ./src/index.ts
 ## Commands
 
 ```text
-Tab               Toggle plan mode and the PLAN tag above the input
+Ctrl+Alt+P        Toggle plan mode and the PLAN tag above the input
 /plan             Toggle plan mode
 /plan on          Enable plan mode
 /plan off         Disable plan mode
@@ -70,6 +70,20 @@ Tab               Toggle plan mode and the PLAN tag above the input
 /plans all        List every plan
 /plan-show        Show the selected plan
 ```
+
+## Shortcut configuration
+
+The default plan-mode shortcut is `ctrl+alt+p`, avoiding Pi's built-in `tab` autocomplete binding.
+
+To set a different shortcut, create `${XDG_CONFIG_HOME:-~/.config}/pi/agent/plan-mode.json`:
+
+```json
+{
+  "toggleShortcut": "alt+p"
+}
+```
+
+You can also override it per process with `PI_PLAN_MODE_SHORTCUT=alt+p`.
 
 ## Plan model
 
