@@ -2,6 +2,10 @@
 
 Read-only planning mode and durable scoped plans for the [Pi coding agent](https://pi.dev).
 
+## Demo
+
+![pi-plan-mode demo](./assets/demo.gif)
+
 ## Features
 
 - `Ctrl+Alt+P` or `/plan` toggles a read-only exploration mode; `/plan <task>` starts a planning request.
